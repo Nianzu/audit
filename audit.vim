@@ -20,7 +20,7 @@ let s:flagfile = empty($AUDIT_FLAGFILE) ? get(g:, 'audit_flagfile', '') : $AUDIT
 
 let s:flags = []
 
-highlight default link AuditFlag Search
+highlight default AuditFlag 
 
 " apply a highlight over a line range, return its match id
 function s:Highlight(start, end) abort
