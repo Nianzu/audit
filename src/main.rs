@@ -89,9 +89,9 @@ impl Status {
     }
     fn color(self) -> String {
         match self {
-            Status::Unread => "".to_string(),           // terminal default
-            Status::Partial => "".yellow(),  // yellow
-            Status::Approved => "".green(), // green
+            Status::Unread => "".to_string(), // terminal default
+            Status::Partial => "".yellow(),   // yellow
+            Status::Approved => "".green(),   // green
         }
     }
 }
@@ -349,7 +349,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
         }
 
         if e.is_dir {
-            out.push_str(&"".cyan()); 
+            out.push_str(&"".cyan());
             out.push_str("        "); // align under "[x] !  "
             if e.is_parent {
                 out.push_str(".. (up)");
