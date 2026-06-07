@@ -5,6 +5,14 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+pub trait Colorize {
+    fn red(&self) -> String;
+}
+
+impl Colorize for str {
+    fn red(&self) -> String {format!("\x1b[31m{self}\x1b[0m")}
+}
+
 // ---------------------------------------------------------------------------
 // status model
 // ---------------------------------------------------------------------------
@@ -314,7 +322,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
             }
         } else {
             let st = store.get(&e.key);
-            let flag = if st.flagged { "\x1b[31m!\x1b[0m" } else { " " };
+            let flag = if st.flagged { &"!".red() } else { " " };
             if selected_row {
                 // re-assert reverse after the flag's inline reset
                 out.push_str(st.status.marker());
@@ -430,10 +438,12 @@ fn main() {
         }
     }
 
+    // TODO why is this different fom cwd?
     let proc_cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let state_path = proc_cwd.join(".audit-state");
     let flag_dir = proc_cwd.join(".audit-flags");
 
+    // TODO We should bring our own vim script. Maybe we can point to the include directory?
     let editor = env::var("EDITOR").unwrap_or_else(|_| "vim".to_string());
     let audit_vim_raw = env::var("AUDIT_VIM").unwrap_or_else(|_| "audit.vim".to_string());
     let audit_vim = fs::canonicalize(&audit_vim_raw)
