@@ -99,12 +99,11 @@ impl Status {
 #[derive(Clone, Copy, Default)]
 struct FileState {
     status: Status,
-    flagged: bool,
 }
 
 impl FileState {
     fn is_default(&self) -> bool {
-        self.status == Status::Unread && !self.flagged
+        self.status == Status::Unread 
     }
 }
 
@@ -124,7 +123,6 @@ impl StateStore {
             for line in content.lines() {
                 let mut it = line.splitn(3, '\t');
                 let st = it.next().unwrap_or("");
-                let fl = it.next().unwrap_or("");
                 let key = it.next().unwrap_or("");
                 if key.is_empty() {
                     continue;
@@ -133,7 +131,6 @@ impl StateStore {
                     key.to_string(),
                     FileState {
                         status: Status::from_name(st),
-                        flagged: fl == "1",
                     },
                 );
             }
@@ -158,8 +155,6 @@ impl StateStore {
         let mut out = String::new();
         for (k, v) in &self.map {
             out.push_str(v.status.name());
-            out.push('\t');
-            out.push(if v.flagged { '1' } else { '0' });
             out.push('\t');
             out.push_str(k);
             out.push('\n');
@@ -299,6 +294,22 @@ fn fnv1a(s: &str) -> u64 {
     h
 }
 
+fn get_flag_file(file: &Path, flag_dir: &Path) -> PathBuf {
+    flag_dir.join(format!("{:016x}.flags", fnv1a(&canonical_key(file))))
+}
+
+fn is_flagged(file: &Path, flag_dir: &Path) -> bool {
+    let flag_file = get_flag_file(file, flag_dir);
+    if let Ok(content) = fs::read_to_string(&flag_file) {
+        for line in content.lines() {
+            if line.len() > 0 {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 fn open_file(file: &Path, flag_dir: &Path, audit_vim: &str, editor: &str, raw: &RawMode) {
     // Hand the terminal back to a sane state so vim can drive it.
     raw.restore();
@@ -306,7 +317,7 @@ fn open_file(file: &Path, flag_dir: &Path, audit_vim: &str, editor: &str, raw: &
     let _ = io::stdout().flush();
 
     let _ = fs::create_dir_all(flag_dir);
-    let flagfile = flag_dir.join(format!("{:016x}.flags", fnv1a(&canonical_key(file))));
+    let flagfile = get_flag_file(file, flag_dir);
 
     let source_cmd = format!("source {}", audit_vim);
     let result = Command::new(editor)
@@ -334,7 +345,7 @@ fn open_file(file: &Path, flag_dir: &Path, audit_vim: &str, editor: &str, raw: &
 // rendering
 // ---------------------------------------------------------------------------
 
-fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, msg: &str) {
+fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, msg: &str, flag_dir: &Path) {
     let mut out = String::new();
     out.push_str("\x1b[2J\x1b[H"); // clear + home
 
@@ -359,7 +370,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
             }
         } else {
             let st = store.get(&e.key);
-            let flag = if st.flagged { &"!".red() } else { " " };
+            let flag = if is_flagged(&e.path, flag_dir){ &"!".red() } else { " " };
             out.push_str(&st.status.color());
             out.push_str(st.status.marker());
             out.push_str(&" ".reset_fg());
@@ -514,7 +525,7 @@ fn main() {
         if selected >= entries.len() && !entries.is_empty() {
             selected = entries.len() - 1;
         }
-        render(&cwd, &entries, selected, &store, &msg);
+        render(&cwd, &entries, selected, &store, &msg, &flag_dir);
         msg.clear();
 
         let n = match stdin.read(&mut buf) {
@@ -574,7 +585,7 @@ fn main() {
                 };
             }),
             Action::ToggleFlag => {
-                mutate_selected(&mut store, &entries, selected, |s| s.flagged = !s.flagged)
+                // mutate_selected(&mut store, &entries, selected, |s| s.flagged = !s.flagged)
             }
             Action::Quit => break,
             Action::None => {}
