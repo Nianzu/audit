@@ -5,12 +5,22 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+// https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
 pub trait Colorize {
     fn red(&self) -> String;
+    fn yellow(&self) -> String;
+    fn green(&self) -> String;
+    fn bold(&self) -> String;
+    fn grey(&self) -> String;
 }
 
 impl Colorize for str {
     fn red(&self) -> String {format!("\x1b[31m{self}\x1b[0m")}
+    fn yellow(&self) -> String {format!("\x1b[33m{self}\x1b[0m")}
+    fn green(&self) -> String {format!("\x1b[32m{self}\x1b[0m")}
+    fn bold(&self) -> String {format!("\x1b[1m{self}\x1b[0m")}
+    fn grey(&self) -> String {format!("\x1b[2m{self}\x1b[0m")}
+
 }
 
 // ---------------------------------------------------------------------------
@@ -301,7 +311,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
     let mut out = String::new();
     out.push_str("\x1b[2J\x1b[H"); // clear + home
 
-    out.push_str("\x1b[1maudit\x1b[0m  ");
+    out.push_str(&"audit  ".bold());
     out.push_str(&cwd.display().to_string());
     out.push_str("\r\n\r\n");
 
@@ -348,8 +358,8 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
     out.push_str("\r\n");
     // TODO grab keybinds from actual keybinds
     out.push_str(
-        "\x1b[2m[k/l] move  [enter] open/cd  [h] up  \
-         [u]nread [p]artial [a]pproved  [space] cycle  [f]lag  [q]uit\x1b[0m\r\n",
+        &"[k/l] move  [enter] open/cd  [h] up  \
+         [u]nread [p]artial [a]pproved  [space] cycle  [f]lag  [q]uit\r\n".grey(),
     );
     if !msg.is_empty() {
         out.push_str(msg);
@@ -456,9 +466,9 @@ fn main() {
     let mut selected = 0usize;
     let mut msg = if audit_vim_missing {
         format!(
-            "\x1b[33mwarning: audit.vim not found at {} — set AUDIT_VIM\x1b[0m",
+            "warning: audit.vim not found at {} — set AUDIT_VIM",
             audit_vim
-        )
+        ).yellow()
     } else {
         String::new()
     };
