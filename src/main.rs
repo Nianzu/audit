@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -15,12 +15,21 @@ pub trait Colorize {
 }
 
 impl Colorize for str {
-    fn red(&self) -> String {format!("\x1b[31m{self}\x1b[0m")}
-    fn yellow(&self) -> String {format!("\x1b[33m{self}\x1b[0m")}
-    fn green(&self) -> String {format!("\x1b[32m{self}\x1b[0m")}
-    fn bold(&self) -> String {format!("\x1b[1m{self}\x1b[0m")}
-    fn grey(&self) -> String {format!("\x1b[2m{self}\x1b[0m")}
-
+    fn red(&self) -> String {
+        format!("\x1b[31m{self}\x1b[0m")
+    }
+    fn yellow(&self) -> String {
+        format!("\x1b[33m{self}\x1b[0m")
+    }
+    fn green(&self) -> String {
+        format!("\x1b[32m{self}\x1b[0m")
+    }
+    fn bold(&self) -> String {
+        format!("\x1b[1m{self}\x1b[0m")
+    }
+    fn grey(&self) -> String {
+        format!("\x1b[2m{self}\x1b[0m")
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -64,9 +73,9 @@ impl Status {
     }
     fn color(self) -> &'static str {
         match self {
-            Status::Unread => "",            // terminal default
-            Status::Partial => "\x1b[33m",   // yellow
-            Status::Approved => "\x1b[32m",  // green
+            Status::Unread => "",           // terminal default
+            Status::Partial => "\x1b[33m",  // yellow
+            Status::Approved => "\x1b[32m", // green
         }
     }
 }
@@ -218,7 +227,9 @@ fn read_entries(dir: &Path) -> Vec<Entry> {
 // terminal raw mode via stty (no termios crate, no unsafe)
 // ---------------------------------------------------------------------------
 
-const RAW_FLAGS: &[&str] = &["-icanon", "-echo", "-isig", "-opost", "min", "1", "time", "0"];
+const RAW_FLAGS: &[&str] = &[
+    "-icanon", "-echo", "-isig", "-opost", "min", "1", "time", "0",
+];
 
 fn stty(args: &[&str]) -> io::Result<String> {
     let out = Command::new("stty")
@@ -359,7 +370,8 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
     // TODO grab keybinds from actual keybinds
     out.push_str(
         &"[k/l] move  [enter] open/cd  [h] up  \
-         [u]nread [p]artial [a]pproved  [space] cycle  [f]lag  [q]uit\r\n".grey(),
+         [u]nread [p]artial [a]pproved  [space] cycle  [f]lag  [q]uit\r\n"
+            .grey(),
     );
     if !msg.is_empty() {
         out.push_str(msg);
@@ -440,7 +452,10 @@ fn mutate_selected(
 
 fn main() {
     let mut argv = env::args().skip(1);
-    let start_dir = argv.next().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let start_dir = argv
+        .next()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
     let mut cwd = fs::canonicalize(&start_dir).unwrap_or(start_dir);
     if !cwd.is_dir() {
         if let Some(p) = cwd.parent() {
@@ -468,7 +483,8 @@ fn main() {
         format!(
             "warning: audit.vim not found at {} — set AUDIT_VIM",
             audit_vim
-        ).yellow()
+        )
+        .yellow()
     } else {
         String::new()
     };
@@ -529,21 +545,19 @@ fn main() {
                         if st.status == Status::Unread {
                             st.status = Status::Partial;
                             store.set(key, st);
-                            
                         }
-
                     }
                 }
             }
-            Action::SetUnread => {
-                mutate_selected(&mut store, &entries, selected, |s| s.status = Status::Unread)
-            }
-            Action::SetPartial => {
-                mutate_selected(&mut store, &entries, selected, |s| s.status = Status::Partial)
-            }
-            Action::SetApproved => {
-                mutate_selected(&mut store, &entries, selected, |s| s.status = Status::Approved)
-            }
+            Action::SetUnread => mutate_selected(&mut store, &entries, selected, |s| {
+                s.status = Status::Unread
+            }),
+            Action::SetPartial => mutate_selected(&mut store, &entries, selected, |s| {
+                s.status = Status::Partial
+            }),
+            Action::SetApproved => mutate_selected(&mut store, &entries, selected, |s| {
+                s.status = Status::Approved
+            }),
             Action::Cycle => mutate_selected(&mut store, &entries, selected, |s| {
                 s.status = match s.status {
                     Status::Unread => Status::Partial,
