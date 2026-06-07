@@ -524,6 +524,14 @@ fn main() {
                         selected = 0;
                     } else {
                         open_file(&path, &flag_dir, &audit_vim, &editor, &raw);
+                        let key = &entries[selected].key;
+                        let mut st = store.get(key);
+                        if st.status == Status::Unread {
+                            st.status = Status::Partial;
+                            store.set(key, st);
+                            
+                        }
+
                     }
                 }
             }
