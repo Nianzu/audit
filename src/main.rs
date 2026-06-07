@@ -12,23 +12,35 @@ pub trait Colorize {
     fn green(&self) -> String;
     fn bold(&self) -> String;
     fn grey(&self) -> String;
+    fn cyan(&self) -> String;
+    fn reset_fg(&self) -> String;
+    fn reset(&self) -> String;
 }
 
 impl Colorize for str {
     fn red(&self) -> String {
-        format!("\x1b[31m{self}\x1b[0m")
+        format!("\x1b[31m{self}")
     }
     fn yellow(&self) -> String {
-        format!("\x1b[33m{self}\x1b[0m")
+        format!("\x1b[33m{self}")
     }
     fn green(&self) -> String {
-        format!("\x1b[32m{self}\x1b[0m")
+        format!("\x1b[32m{self}")
     }
     fn bold(&self) -> String {
-        format!("\x1b[1m{self}\x1b[0m")
+        format!("\x1b[1m{self}")
     }
     fn grey(&self) -> String {
-        format!("\x1b[2m{self}\x1b[0m")
+        format!("\x1b[2m{self}")
+    }
+    fn cyan(&self) -> String {
+        format!("\x1b[36m{self}")
+    }
+    fn reset_fg(&self) -> String {
+        format!("\x1b[39m{self}")
+    }
+    fn reset(&self) -> String {
+        format!("{self}\x1b[0m")
     }
 }
 
@@ -322,7 +334,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
     let mut out = String::new();
     out.push_str("\x1b[2J\x1b[H"); // clear + home
 
-    out.push_str(&"audit  ".bold());
+    out.push_str(&"audit  ".bold().reset());
     out.push_str(&cwd.display().to_string());
     out.push_str("\r\n\r\n");
 
@@ -333,7 +345,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
         }
 
         if e.is_dir {
-            out.push_str("\x1b[36m"); // cyan dirs
+            out.push_str(&"".cyan()); 
             out.push_str("        "); // align under "[x] !  "
             if e.is_parent {
                 out.push_str(".. (up)");
@@ -344,23 +356,13 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
         } else {
             let st = store.get(&e.key);
             let flag = if st.flagged { &"!".red() } else { " " };
-            if selected_row {
-                // re-assert reverse after the flag's inline reset
-                out.push_str(st.status.marker());
-                out.push(' ');
-                out.push_str(if st.flagged { "!" } else { " " });
-                out.push(' ');
-                out.push_str(st.status.color());
-                out.push_str(&e.name);
-            } else {
-                out.push_str(st.status.color());
-                out.push_str(st.status.marker());
-                out.push(' ');
-                out.push_str(flag);
-                out.push(' ');
-                out.push_str(st.status.color());
-                out.push_str(&e.name);
-            }
+            out.push_str(st.status.color());
+            out.push_str(st.status.marker());
+            out.push_str(&" ".reset_fg());
+            out.push_str(flag);
+            out.push_str(&" ".reset_fg());
+            out.push_str(st.status.color());
+            out.push_str(&e.name);
         }
 
         out.push_str("\x1b[0m\r\n");
@@ -371,7 +373,8 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
     out.push_str(
         &"[k/l] move  [enter] open/cd  [h] up  \
          [u]nread [p]artial [a]pproved  [space] cycle  [f]lag  [q]uit\r\n"
-            .grey(),
+            .grey()
+            .reset(),
     );
     if !msg.is_empty() {
         out.push_str(msg);
@@ -485,6 +488,7 @@ fn main() {
             audit_vim
         )
         .yellow()
+        .reset()
     } else {
         String::new()
     };
