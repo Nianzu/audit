@@ -15,6 +15,7 @@ pub trait Colorize {
     fn cyan(&self) -> String;
     fn reset_fg(&self) -> String;
     fn reset(&self) -> String;
+    fn reverse_colors(&self) -> String;
 }
 
 impl Colorize for str {
@@ -41,6 +42,9 @@ impl Colorize for str {
     }
     fn reset(&self) -> String {
         format!("{self}\x1b[0m")
+    }
+    fn reverse_colors(&self) -> String {
+        format!("\x1b[7m{self}")
     }
 }
 
@@ -83,11 +87,11 @@ impl Status {
             _ => Status::Unread,
         }
     }
-    fn color(self) -> &'static str {
+    fn color(self) -> String {
         match self {
-            Status::Unread => "",           // terminal default
-            Status::Partial => "\x1b[33m",  // yellow
-            Status::Approved => "\x1b[32m", // green
+            Status::Unread => "".to_string(),           // terminal default
+            Status::Partial => "".yellow(),  // yellow
+            Status::Approved => "".green(), // green
         }
     }
 }
@@ -341,7 +345,7 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
     for (i, e) in entries.iter().enumerate() {
         let selected_row = i == selected;
         if selected_row {
-            out.push_str("\x1b[7m"); // reverse video
+            out.push_str(&"".reverse_colors());
         }
 
         if e.is_dir {
@@ -356,12 +360,12 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
         } else {
             let st = store.get(&e.key);
             let flag = if st.flagged { &"!".red() } else { " " };
-            out.push_str(st.status.color());
+            out.push_str(&st.status.color());
             out.push_str(st.status.marker());
             out.push_str(&" ".reset_fg());
             out.push_str(flag);
             out.push_str(&" ".reset_fg());
-            out.push_str(st.status.color());
+            out.push_str(&st.status.color());
             out.push_str(&e.name);
         }
 
