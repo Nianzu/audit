@@ -5,6 +5,8 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+// TODO lock traversal to starting dir
+
 // https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
 pub trait Colorize {
     fn red(&self) -> String;
@@ -103,7 +105,7 @@ struct FileState {
 
 impl FileState {
     fn is_default(&self) -> bool {
-        self.status == Status::Unread 
+        self.status == Status::Unread
     }
 }
 
@@ -293,10 +295,11 @@ fn is_flagged(file: &Path, flag_dir: &Path) -> bool {
     if file.is_dir() {
         let children = fs::read_dir(file).unwrap();
         for child in children {
-            if is_flagged(&child.expect("Bad path?").path(), flag_dir) {return true};
+            if is_flagged(&child.expect("Bad path?").path(), flag_dir) {
+                return true;
+            };
         }
         return false;
-
     }
     let flag_file = get_flag_file(file, flag_dir);
     if let Ok(content) = fs::read_to_string(&flag_file) {
@@ -343,9 +346,51 @@ fn open_file(file: &Path, flag_dir: &Path, audit_vim: &str, editor: &str, raw: &
 // ---------------------------------------------------------------------------
 // rendering
 // ---------------------------------------------------------------------------
-// fn dir_stat()
+fn dir_stat(file: &Path, store: &StateStore) -> Status {
+    let children = fs::read_dir(file).unwrap();
+    let mut is_partial = false;
+    let mut is_approved = true;
 
-fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, msg: &str, flag_dir: &Path) {
+    let mut entries = read_entries(&file);
+    for child in entries {
+        if child.is_dir {
+            match dir_stat(&child.path, store) {
+                Status::Partial => is_approved = false,
+                Status::Unread => is_approved = false,
+                _ => {}
+            }
+        } else {
+            let st = store.get(&child.key);
+            if st.status == Status::Approved {
+                is_partial = true;
+            }
+            if st.status == Status::Unread {
+                is_approved = false;
+            }
+            if st.status == Status::Partial {
+                is_approved = false;
+                is_partial = true;
+            }
+        }
+    }
+
+    if is_approved {
+        return Status::Approved;
+    }
+    if is_partial {
+        return Status::Partial;
+    }
+    return Status::Unread;
+}
+
+fn render(
+    cwd: &Path,
+    entries: &[Entry],
+    selected: usize,
+    store: &StateStore,
+    msg: &str,
+    flag_dir: &Path,
+) {
     let mut out = String::new();
     out.push_str("\x1b[2J\x1b[H"); // clear + home
 
@@ -359,13 +404,19 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
             out.push_str(&"".reverse_colors());
         }
 
-        let flag = if is_flagged(&e.path, flag_dir){ &"!".red() } else { " " };
+        let flag = if is_flagged(&e.path, flag_dir) {
+            &"!".red()
+        } else {
+            " "
+        };
+        // TODO lots of duplocate here
         if e.is_dir {
-            out.push_str(&"".cyan());
-            out.push_str("   "); // align under "[x] !  "
-            out.push_str(&" ".cyan());
+            let status = dir_stat(&e.path, store);
+            out.push_str(&"   ".reset_fg()); // align under "[x] !  "
+            out.push_str(&" ".reset_fg());
             out.push_str(flag);
-            out.push_str(&" ".cyan());
+            out.push_str(&" ".reset_fg());
+            out.push_str(&status.color());
             out.push_str(&e.name);
             out.push('/');
         } else {
