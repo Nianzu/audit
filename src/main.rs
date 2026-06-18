@@ -220,15 +220,6 @@ fn read_entries(dir: &Path) -> Vec<Entry> {
     files.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     let mut out = Vec::with_capacity(dirs.len() + files.len() + 1);
-    if let Some(parent) = dir.parent() {
-        out.push(Entry {
-            name: "..".to_string(),
-            path: parent.to_path_buf(),
-            is_dir: true,
-            is_parent: true,
-            key: String::new(),
-        });
-    }
     out.append(&mut dirs);
     out.append(&mut files);
     out
@@ -299,6 +290,14 @@ fn get_flag_file(file: &Path, flag_dir: &Path) -> PathBuf {
 }
 
 fn is_flagged(file: &Path, flag_dir: &Path) -> bool {
+    if file.is_dir() {
+        let children = fs::read_dir(file).unwrap();
+        for child in children {
+            if is_flagged(&child.expect("Bad path?").path(), flag_dir) {return true};
+        }
+        return false;
+
+    }
     let flag_file = get_flag_file(file, flag_dir);
     if let Ok(content) = fs::read_to_string(&flag_file) {
         for line in content.lines() {
@@ -344,6 +343,7 @@ fn open_file(file: &Path, flag_dir: &Path, audit_vim: &str, editor: &str, raw: &
 // ---------------------------------------------------------------------------
 // rendering
 // ---------------------------------------------------------------------------
+// fn dir_stat()
 
 fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, msg: &str, flag_dir: &Path) {
     let mut out = String::new();
@@ -359,18 +359,17 @@ fn render(cwd: &Path, entries: &[Entry], selected: usize, store: &StateStore, ms
             out.push_str(&"".reverse_colors());
         }
 
+        let flag = if is_flagged(&e.path, flag_dir){ &"!".red() } else { " " };
         if e.is_dir {
             out.push_str(&"".cyan());
-            out.push_str("        "); // align under "[x] !  "
-            if e.is_parent {
-                out.push_str(".. (up)");
-            } else {
-                out.push_str(&e.name);
-                out.push('/');
-            }
+            out.push_str("   "); // align under "[x] !  "
+            out.push_str(&" ".cyan());
+            out.push_str(flag);
+            out.push_str(&" ".cyan());
+            out.push_str(&e.name);
+            out.push('/');
         } else {
             let st = store.get(&e.key);
-            let flag = if is_flagged(&e.path, flag_dir){ &"!".red() } else { " " };
             out.push_str(&st.status.color());
             out.push_str(st.status.marker());
             out.push_str(&" ".reset_fg());
